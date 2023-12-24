@@ -1,38 +1,57 @@
 import math
-import numpy as np
+import matplotlib.pyplot as plt
+from datetime import datetime
+import time
 
-class RAMM:
-    def __init__(self, initialPrice, maxPrice, a, b, c, k, stablecoinSupply, goodsSupply):
-        self.initialPrice = initialPrice
-        self.maxPrice = maxPrice
-        self.a = a
-        self.b = b
+class Transaction:
+    def __init__(self,price):
+        self.price = price
+        self.time = datetime.now()
+
+class Pool:
+    def __init__(self,id,initial_qty,mode_qty,initial_price,max_price,c):
+        self.primary = True
+        self.id = id
+        self.initial_max_price_midpoint = (max_price-initial_price) / 2
+        self.b = initial_qty / 2
         self.c = c
-        self.k = k
-        self.stablecoinSupply = stablecoinSupply
-        self.goodsSupply = goodsSupply
-        self.balance = 10000
-        self.tokens_owned = 0
+        
+        self.tokens_sold = 0
+        self.transaction_history = []
+                
+        self.max_price = max_price
+        self.initial_qty = initial_qty
+        self.initial_price = initial_price
+        self.usdc_received = 0
 
-    def get_price(self):
-        return self.stablecoinSupply / self.goodsSupply
-
-    def trade_crypto_for_goods(self, crypto_amount):
-        new_crypto_supply = self.stablecoinSupply + crypto_amount
-        new_goods_supply = self.k / new_crypto_supply
-        goods_amount = self.goodsSupply - new_goods_supply
-        self.stablecoinSupply = new_crypto_supply
-        self.goodsSupply = new_goods_supply
-        return goods_amount
-
-    def trade_goods_for_crypto(self, goods_amount):
-        new_goods_supply = self.goodsSupply + goods_amount
-        new_crypto_supply = self.k / new_goods_supply
-        crypto_amount = self.stablecoinSupply - new_crypto_supply
-        self.stablecoinSupply = new_crypto_supply
-        self.goodsSupply = new_goods_supply
-        return crypto_amount
-
-    def sigFormula(self, x):
-        return self.a * (np.sqrt(x + self.b) / np.sqrt(self.c + (x + self.b)**2) - 1)
-
+        self.mode_qty = mode_qty
+    def generate_curve(self):
+        x = range(0,self.initial_qty)
+        y = [self.calc_y(xi) for xi in x]
+        plt.plot(x, y)
+        plt.xlabel('Token Price')
+        plt.ylabel('Token Supply')
+        plt.title(f'Bonding Curve for {self.id}')
+        plt.show()
+    
+    def price_at(self,x):
+        return self.calc_y(x)
+    
+    def calc_y(self,x):
+        y = self.initial_max_price_midpoint * (((x-self.b)/math.sqrt(self.c+((x-self.b)**2))) + 1) + self.initial_price
+        return y
+    
+    def buy(self):
+        price = self.price_at(self.tokens_sold+1)
+        self.transaction_history.append(Transaction(price))
+        self.usdc_received += price
+        self.tokens_sold += 1
+        return price
+    
+    
+    def show_stats(self):
+        print(f'Tokens sold: {self.tokens_sold}')
+        print(f'USDC Received: {self.usdc_received}')
+        print(f'Transaction Count: {len(self.transaction_history)}')
+        print(f'Next Price: {self.calc_y(self.tokens_sold+1)}')
+   
